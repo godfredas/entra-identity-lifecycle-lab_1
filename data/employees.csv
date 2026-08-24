@@ -1,0 +1,4 @@
+EmployeeId,FirstName,LastName,Department,JobTitle,Status
+1001,Alice,Smith,Sales,Sales Representative,Active
+1002,Bob,Jones,IT,IT Support,Active
+1003,Carol,Brown,HR,HR Assistant,Active
