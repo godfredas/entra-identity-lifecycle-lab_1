@@ -1,0 +1,13 @@
+Write-Host "Identity Lifecycle Lab"
+Write-Host "Joiner process started"
+
+$employees = Import-Csv "../data/employees.csv"
+
+foreach ($employee in $employees) {
+    if ($employee.Status -eq "Active") {
+        Write-Host "Processing: $($employee.FirstName) $($employee.LastName)"
+        Write-Host "Department: $($employee.Department)"
+        Write-Host "Job Title: $($employee.JobTitle)"
+        Write-Host ""
+    }
+}
