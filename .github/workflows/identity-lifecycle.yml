@@ -1,4 +1,42 @@
+
 name: Entra Identity Lifecycle - Authentication Test
 
 on:
   workflow_dispatch:
+
+jobs:
+  test-graph-auth:
+    runs-on: windows-latest
+
+    steps:
+      - name: Install Microsoft Graph PowerShell
+        shell: pwsh
+        run: |
+          Install-Module Microsoft.Graph -Scope CurrentUser -Force -AllowClobber
+
+      - name: Create temporary certificate file
+        shell: pwsh
+        env:
+          AZURE_CERTIFICATE_PFX: ${{ secrets.AZURE_CERTIFICATE_PFX }}
+        run: |
+          $bytes = [Convert]::FromBase64String($env:AZURE_CERTIFICATE_PFX)
+          [System.IO.File]::WriteAllBytes("$env:RUNNER_TEMP\entra-lab.pfx", $bytes)
+
+      - name: Connect to Microsoft Graph
+        shell: pwsh
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CERTIFICATE_PASSWORD: ${{ secrets.AZURE_CERTIFICATE_PASSWORD }}
+        run: |
+          $securePassword = ConvertTo-SecureString $env:AZURE_CERTIFICATE_PASSWORD -AsPlainText -Force
+          Connect-MgGraph -ClientId $env:AZURE_CLIENT_ID -TenantId $env:AZURE_TENANT_ID -CertificatePath "$env:RUNNER_TEMP\entra-lab.pfx" -CertificatePassword $securePassword -NoWelcome
+
+      - name: Test Graph access
+        shell: pwsh
+        run: |
+          Get-MgUser -Top 5 | Select-Object DisplayName, UserPrincipalName
+
+        shell: pwsh
+        run: |
+          Get-MgUser -Top 5 | Select-Object DisplayName, UserPrincipalName
