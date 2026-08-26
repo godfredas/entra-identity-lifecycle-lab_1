@@ -39,4 +39,7 @@ jobs:
 
         shell: pwsh
         run: |
+         name: Test Graph access
+        shell: pwsh
+        run: |
           Get-MgUser -Top 5 | Select-Object DisplayName, UserPrincipalName
