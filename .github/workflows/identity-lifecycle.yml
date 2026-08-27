@@ -31,8 +31,8 @@ jobs:
         run: |
           $securePassword = ConvertTo-SecureString $env:AZURE_CERTIFICATE_PASSWORD -AsPlainText -Force
           Connect-MgGraph -ClientId $env:AZURE_CLIENT_ID -TenantId $env:AZURE_TENANT_ID -CertificatePath "$env:RUNNER_TEMP\entra-lab.pfx" -CertificatePassword $securePassword -NoWelcome
-
       - name: Test Graph access
         shell: pwsh
         run: |
           Get-MgUser -Top 5 | Select-Object DisplayName, UserPrincipalName
+
