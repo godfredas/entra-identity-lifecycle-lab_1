@@ -1,43 +1,4 @@
-name: Entra Identity Lifecycle - Authentication Test
-
-on:
-  workflow_dispatch:
-
-jobs:
-  test-graph-auth:
-    runs-on: windows-latest
-
-    steps:
-      - name: Install Microsoft Graph PowerShell
-        shell: pwsh
-        run: |
-          Install-Module Microsoft.Graph -Scope CurrentUser -Force -AllowClobber
-
-      - name: Create temporary certificate file
-        shell: pwsh
-        env:
-          AZURE_CERTIFICATE_PFX: ${{ secrets.AZURE_CERTIFICATE_PFX }}
-        run: |
-          $pfxBase64 = $env:AZURE_CERTIFICATE_PFX -replace '\s', ''
-
-          if ([string]::IsNullOrWhiteSpace($pfxBase64)) {
-              throw "AZURE_CERTIFICATE_PFX is empty."
-          }
-
-          if ($pfxBase64 -notmatch '^[A-Za-z0-9+/]*={0,2}$') {
-              throw "AZURE_CERTIFICATE_PFX contains invalid Base64."
-          }
-
-          $bytes = [Convert]::FromBase64String($pfxBase64)
-
-          $pfxPath = Join-Path $env:RUNNER_TEMP "entra-lab.pfx"
-
-          [System.IO.File]::WriteAllBytes($pfxPath, $bytes)
-
-          Write-Host "PFX created successfully."
-          Write-Host "PFX size: $($bytes.Length) bytes"
-
-      - name: Connect to Microsoft Graph
+      - name: Connect to Microsoft Graph and test access
         shell: pwsh
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -45,7 +6,6 @@ jobs:
           AZURE_CERTIFICATE_PASSWORD: ${{ secrets.AZURE_CERTIFICATE_PASSWORD }}
         run: |
           Write-Host "=== GRAPH AUTH TEST ==="
-          Write-Host "Using Certificate parameter version"
 
           $pfxPath = Join-Path $env:RUNNER_TEMP "entra-lab.pfx"
 
@@ -72,20 +32,21 @@ jobs:
               throw "Certificate does not contain a private key."
           }
 
+          Write-Host "Connecting to Microsoft Graph..."
+
           Connect-MgGraph `
               -ClientId $env:AZURE_CLIENT_ID `
               -TenantId $env:AZURE_TENANT_ID `
               -Certificate $certificate `
               -NoWelcome
 
-          Write-Host "Microsoft Graph connection established."
+          Write-Host ""
+          Write-Host "=== GRAPH CONNECTION ==="
 
           Get-MgContext | Format-List AppName,ClientId,TenantId,AuthType
 
-      - name: Test Graph access
-        shell: pwsh
-        run: |
-          Write-Host "Testing Microsoft Graph user access..."
+          Write-Host ""
+          Write-Host "=== TESTING GRAPH USER ACCESS ==="
 
           $users = Get-MgUser -Top 5
 
@@ -93,6 +54,7 @@ jobs:
               Select-Object DisplayName,UserPrincipalName,Id |
               Format-Table -AutoSize
 
-          Write-Host "Graph user query completed successfully."
+          Write-Host ""
+          Write-Host "SUCCESS: Microsoft Graph user query completed."
 
 
