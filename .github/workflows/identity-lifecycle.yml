@@ -40,38 +40,30 @@ jobs:
       - name: Connect to Microsoft Graph
         shell: pwsh
         env:
-         
-    AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-    AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-    AZURE_CERTIFICATE_PASSWORD: ${{ secrets.AZURE_CERTIFICATE_PASSWORD }}
-  run: |
-    Write-Host "=== GRAPH AUTH TEST ==="
-    Write-Host "Using Certificate parameter version"
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CERTIFICATE_PASSWORD: ${{ secrets.AZURE_CERTIFICATE_PASSWORD }}
+        run: |
+          Write-Host "=== GRAPH AUTH TEST ==="
+          Write-Host "Using Certificate parameter version"
 
-    $pfxPath = Join-Path $env:RUNNER_TEMP "entra-lab.pfx"
+          $pfxPath = Join-Path $env:RUNNER_TEMP "entra-lab.pfx"
 
-    $securePassword = ConvertTo-SecureString `
-        $env:AZURE_CERTIFICATE_PASSWORD `
-        -AsPlainText `
-        -Force
+          if (-not (Test-Path $pfxPath)) {
+              throw "Certificate file was not found: $pfxPath"
+          }
 
-    $certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
-        $pfxPath,
-        $securePassword,
-        [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable
-    )
+          $securePassword = ConvertTo-SecureString `
+              $env:AZURE_CERTIFICATE_PASSWORD `
+              -AsPlainText `
+              -Force
 
-    Write-Host "Certificate loaded successfully."
-    Write-Host "Thumbprint: $($certificate.Thumbprint)"
-    Write-Host "Has private key: $($certificate.HasPrivateKey)"
+          $certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
+              $pfxPath,
+              $securePassword,
+              [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable
+          )
 
-    Connect-MgGraph `
-        -ClientId $env:AZURE_CLIENT_ID `
-        -TenantId $env:AZURE_TENANT_ID `
-        -Certificate $certificate `
-        -NoWelcome
-
-    Get-MgContext | Format-List AppName,ClientId,TenantId,AuthType
           Write-Host "Certificate loaded successfully."
           Write-Host "Thumbprint: $($certificate.Thumbprint)"
           Write-Host "Has private key: $($certificate.HasPrivateKey)"
@@ -80,13 +72,12 @@ jobs:
               throw "Certificate does not contain a private key."
           }
 
-         Connect-MgGraph `
-    -ClientId $env:AZURE_CLIENT_ID `
-    -TenantId $env:AZURE_TENANT_ID `
-    -Certificate $certificate `
-    -NoWelcome
+          Connect-MgGraph `
+              -ClientId $env:AZURE_CLIENT_ID `
+              -TenantId $env:AZURE_TENANT_ID `
+              -Certificate $certificate `
+              -NoWelcome
 
-          Write-Host ""
           Write-Host "Microsoft Graph connection established."
 
           Get-MgContext | Format-List AppName,ClientId,TenantId,AuthType
@@ -98,9 +89,10 @@ jobs:
 
           $users = Get-MgUser -Top 5
 
-          $users | Select-Object DisplayName, UserPrincipalName, Id | Format-Table -AutoSize
+          $users |
+              Select-Object DisplayName,UserPrincipalName,Id |
+              Format-Table -AutoSize
 
-          Write-Host ""
           Write-Host "Graph user query completed successfully."
-            Select-Object DisplayName, UserPrincipalName
+
 
