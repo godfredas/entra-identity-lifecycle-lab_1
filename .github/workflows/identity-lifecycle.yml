@@ -12,3 +12,8 @@ jobs:
         run: |
           Write-Host "GitHub Actions YAML is working."
           Write-Host "PowerShell is working."
+- name: Install Microsoft Graph
+        shell: pwsh
+        run: |
+          Install-Module Microsoft.Graph -Scope CurrentUser -Force -AllowClobber
+          Write-Host "Microsoft Graph module installed."
