@@ -1,3 +1,4 @@
+
 name: Graph Authentication Test
 
 on:
@@ -12,9 +13,8 @@ jobs:
         run: |
           Write-Host "GitHub Actions YAML is working."
           Write-Host "PowerShell is working."
-                   Write-Host "PowerShell is working."
-      
-- name: Install Microsoft Graph
+
+      - name: Install Microsoft Graph
         shell: pwsh
         run: |
           Install-Module Microsoft.Graph -Scope CurrentUser -Force -AllowClobber
