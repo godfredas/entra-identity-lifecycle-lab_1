@@ -1,4 +1,4 @@
-   name: Entra Identity Lifecycle - Authentication Test
+name: Entra Identity Lifecycle - Authentication Test
 
 on:
   workflow_dispatch:
