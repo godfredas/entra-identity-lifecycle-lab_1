@@ -1,15 +1,18 @@
-name: Entra Identity Lifecycle - Authentication Test
+name: Graph Authentication Test
 
 on:
   workflow_dispatch:
 
 jobs:
-  test-graph-auth:
+  test:
     runs-on: windows-latest
-
     steps:
-      - name: Install Microsoft Graph PowerShell
+      - name: Test PowerShell
         shell: pwsh
+        run: |
+          Write-Host "GitHub Actions YAML is working."
+          Write-Host "PowerShell is working."
+
         run: |
           Install-Module Microsoft.Graph -Scope CurrentUser -Force -AllowClobber
 
