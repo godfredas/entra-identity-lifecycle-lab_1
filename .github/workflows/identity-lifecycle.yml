@@ -89,3 +89,83 @@ name: Graph Authentication Test
           $users | Select-Object DisplayName,UserPrincipalName,Id | Format-Table -AutoSize
 
           Write-Host "SUCCESS: Microsoft Graph user query completed."
+12         run: |
+13           Write-Host ...
+14           Write-Host ...
+
+        run: |
+          Write-Host "GitHub Actions YAML is working."
+          Write-Host "PowerShell is working."
+
+        run: |
+          Install-Module Microsoft.Graph -Scope CurrentUser -Force -AllowClobber
+
+      - name: Create temporary certificate file
+        shell: pwsh
+        env:
+          AZURE_CERTIFICATE_PFX: ${{ secrets.AZURE_CERTIFICATE_PFX }}
+        run: |
+          $pfxBase64 = $env:AZURE_CERTIFICATE_PFX -replace '\s', ''
+
+          if ([string]::IsNullOrWhiteSpace($pfxBase64)) {
+              throw "AZURE_CERTIFICATE_PFX is empty."
+          }
+
+          if ($pfxBase64 -notmatch '^[A-Za-z0-9+/]*={0,2}$') {
+              throw "AZURE_CERTIFICATE_PFX contains invalid Base64."
+          }
+
+          $bytes = [Convert]::FromBase64String($pfxBase64)
+          $pfxPath = Join-Path $env:RUNNER_TEMP "entra-lab.pfx"
+
+          [System.IO.File]::WriteAllBytes($pfxPath, $bytes)
+
+          Write-Host "PFX created successfully."
+          Write-Host "PFX size: $($bytes.Length) bytes"
+
+      - name: Connect to Microsoft Graph and test access
+        shell: pwsh
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CERTIFICATE_PASSWORD: ${{ secrets.AZURE_CERTIFICATE_PASSWORD }}
+        run: |
+          Write-Host "=== GRAPH AUTH TEST ==="
+
+          $pfxPath = Join-Path $env:RUNNER_TEMP "entra-lab.pfx"
+
+          if (-not (Test-Path $pfxPath)) {
+              throw "Certificate file was not found: $pfxPath"
+          }
+
+          $securePassword = ConvertTo-SecureString $env:AZURE_CERTIFICATE_PASSWORD -AsPlainText -Force
+
+          $certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
+              $pfxPath,
+              $securePassword,
+              [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable
+          )
+
+          Write-Host "Certificate loaded successfully."
+          Write-Host "Thumbprint: $($certificate.Thumbprint)"
+          Write-Host "Has private key: $($certificate.HasPrivateKey)"
+
+          if (-not $certificate.HasPrivateKey) {
+              throw "Certificate does not contain a private key."
+          }
+
+          Write-Host "Connecting to Microsoft Graph..."
+
+          Connect-MgGraph -ClientId $env:AZURE_CLIENT_ID -TenantId $env:AZURE_TENANT_ID -Certificate $certificate -NoWelcome
+
+          Write-Host "=== GRAPH CONNECTION ==="
+
+          Get-MgContext | Format-List AppName,ClientId,TenantId,AuthType
+
+          Write-Host "=== TESTING GRAPH USER ACCESS ==="
+
+          $users = Get-MgUser -Top 5
+
+          $users | Select-Object DisplayName,UserPrincipalName,Id | Format-Table -AutoSize
+
+          Write-Host "SUCCESS: Microsoft Graph user query completed."
