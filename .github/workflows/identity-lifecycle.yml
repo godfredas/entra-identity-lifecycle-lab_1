@@ -19,3 +19,25 @@ jobs:
         run: |
           Install-Module Microsoft.Graph -Scope CurrentUser -Force -AllowClobber
           Write-Host "Microsoft Graph module installed."
+- name: Create temporary certificate file
+        shell: pwsh
+        env:
+          AZURE_CERTIFICATE_PFX: ${{ secrets.AZURE_CERTIFICATE_PFX }}
+        run: |
+          $pfxBase64 = $env:AZURE_CERTIFICATE_PFX -replace '\s', ''
+
+          if ([string]::IsNullOrWhiteSpace($pfxBase64)) {
+              throw "AZURE_CERTIFICATE_PFX is empty."
+          }
+
+          if ($pfxBase64 -notmatch '^[A-Za-z0-9+/]*={0,2}$') {
+              throw "AZURE_CERTIFICATE_PFX contains invalid Base64."
+          }
+
+          $bytes = [Convert]::FromBase64String($pfxBase64)
+          $pfxPath = Join-Path $env:RUNNER_TEMP "entra-lab.pfx"
+
+          [System.IO.File]::WriteAllBytes($pfxPath, $bytes)
+
+          Write-Host "PFX created successfully."
+          Write-Host "PFX size: $($bytes.Length) bytes"
