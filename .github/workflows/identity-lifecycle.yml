@@ -7,6 +7,7 @@ on:
 jobs:
   test:
     runs-on: windows-latest
+
     steps:
       - name: Test PowerShell
         shell: pwsh
@@ -35,7 +36,13 @@ jobs:
               throw "AZURE_CERTIFICATE_PFX contains invalid Base64."
           }
 
-          $bytes = [Convert]::FromBase64String($pfxBase64)
+          try {
+              $bytes = [Convert]::FromBase64String($pfxBase64)
+          }
+          catch {
+              throw "AZURE_CERTIFICATE_PFX is not valid Base64."
+          }
+
           $pfxPath = Join-Path $env:RUNNER_TEMP "entra-lab.pfx"
 
           [System.IO.File]::WriteAllBytes($pfxPath, $bytes)
@@ -43,52 +50,77 @@ jobs:
           Write-Host "PFX created successfully."
           Write-Host "PFX size: $($bytes.Length) bytes"
 
-      - name: Connect to Microsoft Graph and test access
+      - name: Authenticate to Microsoft Graph
         shell: pwsh
         env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CERTIFICATE_PASSWORD: ${{ secrets.AZURE_CERTIFICATE_PASSWORD }}
         run: |
-          Write-Host "=== GRAPH AUTH TEST ==="
-
           $pfxPath = Join-Path $env:RUNNER_TEMP "entra-lab.pfx"
 
           if (-not (Test-Path $pfxPath)) {
-              throw "Certificate file was not found: $pfxPath"
+              throw "PFX file was not created."
           }
 
-          $securePassword = ConvertTo-SecureString $env:AZURE_CERTIFICATE_PASSWORD -AsPlainText -Force
-
-          $certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
-              $pfxPath,
-              $securePassword,
-              [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable
-          )
-
-          Write-Host "Certificate loaded successfully."
-          Write-Host "Has private key: $($certificate.HasPrivateKey)"
-
-          if (-not $certificate.HasPrivateKey) {
-              throw "Certificate does not contain a private key."
+          if ([string]::IsNullOrWhiteSpace($env:AZURE_TENANT_ID)) {
+              throw "AZURE_TENANT_ID is empty."
           }
 
-          Write-Host "Connecting to Microsoft Graph..."
+          if ([string]::IsNullOrWhiteSpace($env:AZURE_CLIENT_ID)) {
+              throw "AZURE_CLIENT_ID is empty."
+          }
+
+          if ([string]::IsNullOrWhiteSpace($env:AZURE_CERTIFICATE_PASSWORD)) {
+              throw "AZURE_CERTIFICATE_PASSWORD is empty."
+          }
+
+          $securePassword = ConvertTo-SecureString `
+              $env:AZURE_CERTIFICATE_PASSWORD `
+              -AsPlainText `
+              -Force
+
+          $cert = Import-PfxCertificate `
+              -FilePath $pfxPath `
+              -CertStoreLocation Cert:\CurrentUser\My `
+              -Password $securePassword
+
+          if (-not $cert) {
+              throw "Failed to import certificate."
+          }
+
+          Write-Host "Certificate imported successfully."
+          Write-Host "Certificate thumbprint: $($cert.Thumbprint)"
 
           Connect-MgGraph `
-            -ClientId $env:AZURE_CLIENT_ID `
-            -TenantId $env:AZURE_TENANT_ID `
-            -Certificate $certificate `
-            -NoWelcome
+              -TenantId $env:AZURE_TENANT_ID `
+              -ClientId $env:AZURE_CLIENT_ID `
+              -CertificateThumbprint $cert.Thumbprint `
+              -NoWelcome
 
-          Write-Host "=== GRAPH CONNECTION ==="
+          $context = Get-MgContext
 
-          Get-MgContext | Format-List AppName,ClientId,TenantId,AuthType
+          if (-not $context) {
+              throw "Microsoft Graph authentication failed."
+          }
 
-          Write-Host "=== TESTING GRAPH USER ACCESS ==="
+          Write-Host "Microsoft Graph authentication succeeded."
+          Write-Host "Tenant ID: $($context.TenantId)"
+          Write-Host "Client ID: $($context.ClientId)"
 
-          $users = Get-MgUser -Top 5
+      - name: Disconnect Microsoft Graph
+        if: always()
+        shell: pwsh
+        run: |
+          Disconnect-MgGraph -ErrorAction SilentlyContinue
 
-          $users | Select-Object DisplayName,UserPrincipalName,Id | Format-Table -AutoSize
+      - name: Clean up temporary certificate
+        if: always()
+        shell: pwsh
+        run: |
+          $pfxPath = Join-Path $env:RUNNER_TEMP "entra-lab.pfx"
 
-          Write-Host "SUCCESS: Microsoft Graph user query completed."
+          if (Test-Path $pfxPath) {
+              Remove-Item $pfxPath -Force
+              Write-Host "Temporary PFX removed."
+          }
