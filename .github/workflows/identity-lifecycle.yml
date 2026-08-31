@@ -1,3 +1,4 @@
+
 name: Graph Authentication Test
 
 on:
@@ -91,5 +92,3 @@ jobs:
           $users | Select-Object DisplayName,UserPrincipalName,Id | Format-Table -AutoSize
 
           Write-Host "SUCCESS: Microsoft Graph user query completed."
-($bytes.Length) bytes"
-
